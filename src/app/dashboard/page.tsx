@@ -1,112 +1,103 @@
-"use client";
+"use client"
 
-import { Card } from "@/components/ui/card";
-import { ArrowUpRight, Users, CreditCard, Activity, BarChart, LineChart } from "lucide-react";
+import React, { useState, useEffect } from 'react'
+import { Card, CardContent, CardTitle } from '@/components/ui/card'
+import { Plus, Loader2 } from 'lucide-react'
+import Link from 'next/link'
+import Image from 'next/image'
+import { useToast } from '@/components/ui/use-toast'
 
-// Reusable stat card component for better maintainability
-interface StatCardProps {
-  title: string;
-  value: string;
-  change: string;
-  icon: React.ElementType;
-  positive?: boolean;
+interface Board {
+  id: string
+  title: string
+  coverImage: string
 }
 
-const StatCard = ({ title, value, change, icon: Icon, positive = true }: StatCardProps) => (
-  <Card className="p-4">
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-sm font-medium text-muted-foreground">{title}</p>
-        <h3 className="text-2xl font-bold mt-1">{value}</h3>
-        <p className={`text-xs ${positive ? "text-green-500" : "text-red-500"} flex items-center mt-1`}>
-          <ArrowUpRight className="h-3 w-3 mr-1" />
-          {change}
-        </p>
-      </div>
-      <div className="p-2 bg-primary/10 rounded-full">
-        <Icon className="h-5 w-5 text-primary" />
-      </div>
-    </div>
-  </Card>
-);
-
 export default function DashboardPage() {
+  const [boards, setBoards] = useState<Board[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const { toast } = useToast()
+
+  useEffect(() => {
+    const fetchBoards = async () => {
+      setIsLoading(true)
+      try {
+        const response = await fetch('/api/boards')
+        if (!response.ok) {
+          throw new Error('Failed to fetch boards')
+        }
+        const data = await response.json()
+        setBoards(data)
+      } catch (error) {
+        console.error('Error fetching boards:', error)
+        toast({
+          title: 'Error',
+          description: 'Could not fetch your boards. Please try again later.',
+          variant: 'destructive',
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchBoards()
+  }, [toast])
+
   return (
-    // Added px-4 for extra padding on sides at all screen sizes
-    <div className="space-y-6 px-4 sm:px-6 md:px-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">Welcome to your dashboard overview.</p>
-      </div>
+    <div className="container mx-auto px-4 py-8 h-full">
+      <h1 className="text-2xl font-bold mb-6">Team boards</h1>
 
-      {/* Responsive grid for stat cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Total Users"
-          value="2,853"
-          change="+12.5%"
-          icon={Users}
-        />
-
-        <StatCard
-          title="Total Revenue"
-          value="$45,231"
-          change="+7.2%"
-          icon={CreditCard}
-        />
-
-        <StatCard
-          title="Active Sessions"
-          value="1,274"
-          change="+18.3%"
-          icon={Activity}
-        />
-
-        <StatCard
-          title="Conversion Rate"
-          value="5.24%"
-          change="+3.1%"
-          icon={BarChart}
-        />
-      </div>
-
-      {/* Responsive grid for larger sections */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium">Recent Activity</h3>
-          </div>
-          <div className="space-y-4">
-            {[1, 2, 3, 4].map((item) => (
-              <div key={item} className="flex items-center gap-4 border-b pb-4 last:border-0">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Users className="h-5 w-5 text-primary" />
+      {isLoading ? (
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <span className="ml-2">Loading boards...</span>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {/* New Board Card */}
+          <Link href="/board/new">
+            <Card className="h-full cursor-pointer border-2 border-dashed hover:border-primary hover:bg-primary/5 transition-colors group">
+              <CardContent className="flex flex-col items-center justify-center h-[240px] p-6">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                  <Plus className="h-6 w-6 text-primary" />
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">New user registered</p>
-                  <p className="text-xs text-muted-foreground">John Doe</p>
-                </div>
-                <p className="text-xs text-muted-foreground">2 hours ago</p>
-              </div>
-            ))}
-          </div>
-        </Card>
+                <CardTitle className="mt-4 text-center">New board</CardTitle>
+              </CardContent>
+            </Card>
+          </Link>
 
-        <Card className="p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium">Analytics</h3>
-          </div>
-          <div className="h-[260px] flex items-center justify-center border rounded-md">
-            <div className="text-center p-6">
-              <LineChart className="h-12 w-12 mx-auto text-primary mb-2" />
-              <h4 className="text-lg font-medium">Monthly Revenue</h4>
-              <p className="text-sm text-muted-foreground mt-1">
-                View detailed analytics in the Analytics section
-              </p>
-            </div>
-          </div>
-        </Card>
-      </div>
+          {/* Existing Boards */}
+          {boards.map((board) => (
+            <Link href={`/dashboard/board/${board.id}`} key={board.id}>
+              <Card className="h-full cursor-pointer hover:shadow-md transition-all border-2 hover:border-primary/20">
+                <CardContent className="p-0 overflow-hidden">
+                  <div className="h-[180px] relative">
+                    <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/20" />
+                    <div className="w-full h-full bg-muted/30 flex items-center justify-center">
+                      {board.coverImage ? (
+                        <Image
+                          src={board.coverImage}
+                          alt={board.title}
+                          fill
+                          className="object-cover"
+                          priority
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-primary/10">
+                          <span className="text-xl font-medium text-primary/60">{board.title.charAt(0).toUpperCase()}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="p-4">
+                    <CardTitle className="text-center truncate">{board.title}</CardTitle>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
-  );
+  )
 }

@@ -1,0 +1,7 @@
+<svg width="400" height="300" xmlns="http://www.w3.org/2000/svg">
+  <rect width="100%" height="100%" fill="#f8f9fa"/>
+  <rect x="50" y="50" width="300" height="200" fill="#ffd43b" opacity="0.2"/>
+  <rect x="80" y="80" width="240" height="140" fill="#ffd43b" opacity="0.4"/>
+  <rect x="110" y="110" width="180" height="80" fill="#ffd43b" opacity="0.6"/>
+  <text x="200" y="150" font-family="Arial" font-size="24" text-anchor="middle" fill="#495057">Task Board</text>
+</svg> 

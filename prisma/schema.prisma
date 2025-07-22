@@ -22,6 +22,7 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   sessions      Session[]
+  boards        Board[]   // Relation to boards created by this user
 }
 
 model Session {
@@ -30,4 +31,29 @@ model Session {
   userId       String
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Board {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  coverImage  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks       Task[]
+}
+
+model Task {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  status      String   @default("todo") // todo, in-progress, completed
+  dueDate     DateTime?
+  label       String?  // Design, Development, Research, etc.
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  boardId     String
+  board       Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
 }

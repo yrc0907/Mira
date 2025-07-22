@@ -2,16 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Users, Settings, Calendar, BarChart4, ChevronRight, ChevronLeft, PanelLeftClose, PanelLeft } from "lucide-react";
+import { Home, Users, Settings, Calendar, BarChart4, ChevronRight, ChevronLeft, PanelLeftClose, PanelLeft, Star } from "lucide-react";
 import { useSidebar } from "@/context/SidebarContext";
 import { Logo } from "./Logo";
 
 const navItems = [
-  { icon: Home, label: "Home", href: "/dashboard" },
-  { icon: Users, label: "Users", href: "/dashboard/users" },
-  { icon: Calendar, label: "Calendar", href: "/dashboard/calendar" },
-  { icon: BarChart4, label: "Analytics", href: "/dashboard/analytics" },
-  { icon: Settings, label: "Settings", href: "/dashboard/settings" }
+  { icon: Home, label: "Team boards", href: "/dashboard" },
+  { icon: Star, label: "Favorite boards", href: "/dashboard/favorite" }
 ];
 
 const Sidebar = () => {

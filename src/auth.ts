@@ -1,10 +1,9 @@
 import NextAuth from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
+import type { NextAuthConfig } from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
+import { prisma } from "@/lib/database";
+import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
-import { PrismaClient } from "./generated/prisma/index";
-
-const prisma = new PrismaClient();
 
 // Extend the built-in types
 declare module "next-auth" {
@@ -17,21 +16,14 @@ declare module "next-auth" {
       username?: string;
     }
   }
-
-  interface User {
-    username?: string;
-  }
 }
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+const authConfig: NextAuthConfig = {
   adapter: PrismaAdapter(prisma),
-  session: {
-    strategy: "jwt",
-  },
+  session: { strategy: "jwt" },
   pages: {
     signIn: "/login",
   },
-  secret: process.env.AUTH_SECRET,
   providers: [
     CredentialsProvider({
       name: "Credentials",
@@ -40,52 +32,41 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        if (!credentials?.username || !credentials?.password) {
+        const { username, password } = credentials as {
+          username: string;
+          password: string;
+        };
+
+        if (!username || !password) {
           return null;
         }
 
-        // 确保类型安全
-        const username = credentials.username as string;
-        const password = credentials.password as string;
-
         const user = await prisma.user.findUnique({
-          where: { username },
+          where: { username }
         });
 
         if (!user) {
           return null;
         }
 
-        const passwordMatch = await bcrypt.compare(
-          password,
-          user.password
-        );
+        const passwordsMatch = await bcrypt.compare(password, user.password);
 
-        if (!passwordMatch) {
-          return null;
-        }
-
-        return {
+        return passwordsMatch ? {
           id: user.id,
           name: user.name,
-          username: user.username,
-        };
-      },
-    }),
+          username: user.username
+        } : null;
+      }
+    })
   ],
   callbacks: {
     async session({ session, token }) {
       if (token && session.user) {
-        session.user.id = token.sub || '';
-        session.user.username = token.username as string;
+        session.user.id = token.sub as string;
       }
       return session;
-    },
-    async jwt({ token, user }) {
-      if (user) {
-        token.username = user.username;
-      }
-      return token;
     }
-  },
-}); 
+  }
+};
+
+export const { handlers: { GET, POST }, auth, signIn, signOut } = NextAuth(authConfig); 
