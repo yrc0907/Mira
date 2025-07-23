@@ -33,9 +33,10 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   onClose,
   onColorSelect,
 }) => {
+  // 这两个属性在父组件中已经设置了位置，所以这里不需要再处理x,y
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Close the menu when clicked outside
+  // 菜单外点击时关闭
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -49,42 +50,41 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
     };
   }, [onClose]);
 
-  // Calculate position to ensure menu stays within viewport
-  const [position, setPosition] = useState({ x, y });
+  // 处理点击颜色事件
+  const handleColorClick = (colorValue: string) => {
+    console.log("Color clicked:", colorValue);
+    // 应用颜色但不立即关闭菜单
+    onColorSelect(colorValue);
+    // 手动触发一个事件以保证颜色被应用
+    setTimeout(() => {
+      onClose();
+    }, 50);
+  };
 
-  useEffect(() => {
-    if (menuRef.current) {
-      const rect = menuRef.current.getBoundingClientRect();
-      const newX = x + rect.width > window.innerWidth ? x - rect.width : x;
-      const newY = y + rect.height > window.innerHeight ? y - rect.height : y;
-      setPosition({ x: newX, y: newY });
-    }
-  }, [x, y]);
+  // 阻止事件冒泡的通用函数
+  const stopEvent = (e: React.SyntheticEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+  };
 
   return (
     <div
       ref={menuRef}
-      style={{
-        position: "absolute",
-        left: `${position.x}px`,
-        top: `${position.y}px`,
-        zIndex: 1000,
-      }}
       className="rounded-md bg-white shadow-lg p-2 min-w-[150px]"
-      onClick={(e) => e.stopPropagation()}
+      onClick={stopEvent}
+      onContextMenu={stopEvent}
+      onPointerDown={stopEvent}
     >
-      <div className="text-sm font-medium mb-2 px-2 text-gray-700">Change Color</div>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="text-sm font-medium mb-2 px-2 text-gray-700">更改颜色</div>
+      <div className="grid grid-cols-3 gap-2 p-1">
         {DEFAULT_COLORS.map((color) => (
           <div
             key={color.value}
-            className="w-6 h-6 rounded-full cursor-pointer border border-gray-300 hover:opacity-80"
+            className="w-6 h-6 rounded-full cursor-pointer border border-gray-300 hover:opacity-80 transition-opacity"
             style={{ backgroundColor: color.bgColor }}
             title={color.label}
-            onClick={() => {
-              onColorSelect(color.value);
-              onClose();
-            }}
+            onClick={() => handleColorClick(color.value)}
+            onMouseDown={stopEvent}
           />
         ))}
       </div>
