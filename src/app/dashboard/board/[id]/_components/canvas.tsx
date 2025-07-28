@@ -6,25 +6,19 @@ import { Participants } from './participants';
 import Info from './info';
 import Toolbar from './toolbar';
 import { CanvasMode, CanvasState } from '@/types/canvas';
+import { Cursor } from './cursor';
 
 const Cursors = () => {
   const others = useOthers();
 
   return (
     <>
-      {others.map(({ connectionId, presence }) => {
-        if (presence.cursor === null) {
-          return null;
-        }
-        return (
-          <path
-            key={connectionId}
-            d={`M ${presence.cursor.x} ${presence.cursor.y} L ${presence.cursor.x + 10} ${presence.cursor.y + 10} M ${presence.cursor.x} ${presence.cursor.y + 10} L ${presence.cursor.x + 10} ${presence.cursor.y}`}
-            stroke="black"
-            strokeWidth="2"
-          />
-        );
-      })}
+      {others.map(({ connectionId }) => (
+        <Cursor
+          key={connectionId}
+          connectionId={connectionId}
+        />
+      ))}
     </>
   );
 };
@@ -46,7 +40,9 @@ export function Canvas({ boardId }: { boardId: string }) {
     <main
       className="h-full w-full relative bg-neutral-100 touch-none"
       onPointerMove={(e) => {
-        const cursor = { x: Math.round(e.clientX), y: Math.round(e.clientY) };
+        e.preventDefault();
+        const { clientX, clientY } = e;
+        const cursor = { x: Math.round(clientX), y: Math.round(clientY) };
         updateMyPresence({ cursor });
       }}
       onPointerLeave={() => {
@@ -64,7 +60,7 @@ export function Canvas({ boardId }: { boardId: string }) {
         redo={redo}
       />
       <svg
-        className="h-full w-full"
+        className="h-[100vh] w-[100vw]"
       >
         <g>
           <Cursors />
