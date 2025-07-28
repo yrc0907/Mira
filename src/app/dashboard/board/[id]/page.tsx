@@ -1,24 +1,21 @@
-"use client";
-
 import React from "react";
-
-// import { Room } from "@/components/room";
-import { Canvas } from "@/components/board/canvas";
+import { Canvas } from "./_components/canvas";
+import { Room } from "./room";
+import Loading from "./loading";
 
 interface BoardIdPageProps {
-  params: Promise<{
+  params: {
     id: string;
-  }>;
-};
+  };
+}
 
-const BoardIdPage = ({
-  params,
-}: BoardIdPageProps) => {
-  const { id } = React.use(params);
-
+const BoardIdPage = async ({ params }: BoardIdPageProps) => {
+  const { id } = await params;
   return (
-    <Canvas boardId={id || ""} />
+    <Room roomId={id} fallback={<Loading />}>
+      <Canvas boardId={id} />
+    </Room>
   );
 };
 
-export default BoardIdPage; 
+export default BoardIdPage;
