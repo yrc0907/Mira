@@ -18,6 +18,7 @@ export enum Tool {
   Pencil,
   Text,
   StickyNote,
+  Line, // 添加直线工具
 }
 
 export enum CanvasMode {
@@ -29,6 +30,7 @@ export enum CanvasMode {
   DragSelecting,
   Pencil,
   Moving, // 添加新的移动模式
+  DrawingLine, // 添加绘制直线模式
 }
 
 type Point = { x: number; y: number };
@@ -42,6 +44,8 @@ export type Layer = {
   width: number;
   fill: string;
   points?: Point[]; // 铅笔工具的路径点
+  strokeWidth?: number; // 铅笔和直线工具的粗细
+  strokeStyle?: "solid" | "dashed" | "dotted"; // 线条样式
 };
 
 type CanvasState =
@@ -72,6 +76,11 @@ type CanvasState =
   | {
     mode: CanvasMode.Moving;
     origin: Point;
+  }
+  | {
+    mode: CanvasMode.DrawingLine;
+    origin: Point;
+    current: Point;
   };
 
 interface CanvasProps {
@@ -84,6 +93,9 @@ export function Canvas({ boardId }: CanvasProps) {
   const [canvasState, setCanvasState] = useState<CanvasState>({
     mode: CanvasMode.None,
   });
+  const [strokeWidth, setStrokeWidth] = useState(2); // 默认粗细为2
+  const [strokeStyle, setStrokeStyle] = useState<"solid" | "dashed" | "dotted">("solid"); // 默认样式为实线
+  const [strokeColor, setStrokeColor] = useState("black"); // 默认颜色为黑色
 
   const [camera, setCamera] = useState({ x: 0, y: 0 });
   const [selectedLayerIds, setSelectedLayerIds] = useState<string[]>([]);
@@ -283,6 +295,26 @@ export function Canvas({ boardId }: CanvasProps) {
     },
     [selectedLayerIds, updateHistory, closeContextMenu],
   );
+
+  const handleDrawingColorChange = (color: string) => {
+    setStrokeColor(color);
+    updateSelectedLayersProperties({ fill: color });
+  };
+
+  const updateSelectedLayersProperties = useCallback((properties: Partial<Layer>) => {
+    if (selectedLayerIds.length > 0) {
+      setLayers(layers => {
+        const newLayers = layers.map(layer => {
+          if (selectedLayerIds.includes(layer.id)) {
+            return { ...layer, ...properties };
+          }
+          return layer;
+        });
+        updateHistory(newLayers);
+        return newLayers;
+      });
+    }
+  }, [selectedLayerIds, layers, updateHistory]);
 
   const [initialLayerStates, setInitialLayerStates] = useState<Record<string, Layer>>({});
 
@@ -545,6 +577,12 @@ export function Canvas({ boardId }: CanvasProps) {
           origin: canvasState.origin,
           current: point
         });
+      } else if (canvasState.mode === CanvasMode.DrawingLine) {
+        setCanvasState({
+          mode: CanvasMode.DrawingLine,
+          origin: canvasState.origin,
+          current: point
+        });
       }
     },
     [canvasState, selectedLayerIds, camera, initialLayerStates, screenToWorld, currentPath]
@@ -626,8 +664,10 @@ export function Canvas({ boardId }: CanvasProps) {
           y: bounds.y,
           width: bounds.width,
           height: bounds.height,
-          fill: "black", // 默认颜色
-          points: currentPath.map(pt => ({ ...pt })) // 创建点的深拷贝
+          fill: strokeColor, // 使用颜色状态
+          points: currentPath.map(pt => ({ ...pt })), // 创建点的深拷贝
+          strokeWidth: strokeWidth,
+          strokeStyle: strokeStyle,
         };
 
         const updatedLayers = [...layers, newLayer];
@@ -641,10 +681,32 @@ export function Canvas({ boardId }: CanvasProps) {
 
       // 清空当前路径
       setCurrentPath([]);
+    } else if (canvasState.mode === CanvasMode.DrawingLine) {
+      const { origin, current } = canvasState;
+      if (Math.abs(origin.x - current.x) > 3 || Math.abs(origin.y - current.y) > 3) {
+        const newLayer: Layer = {
+          id: new Date().toISOString(),
+          type: Tool.Line,
+          x: Math.min(origin.x, current.x),
+          y: Math.min(origin.y, current.y),
+          width: Math.abs(origin.x - current.x),
+          height: Math.abs(origin.y - current.y),
+          fill: strokeColor, // 使用颜色状态
+          points: [origin, current],
+          strokeWidth: strokeWidth,
+          strokeStyle: strokeStyle,
+        };
+
+        const updatedLayers = [...layers, newLayer];
+        setLayers(updatedLayers);
+        updateHistory(updatedLayers);
+        setSelectedLayerIds([newLayer.id]);
+        setActiveTool(Tool.Selection);
+      }
     }
 
     setCanvasState({ mode: CanvasMode.None });
-  }, [canvasState, layers, updateHistory, currentPath, setActiveTool, calculatePathBounds]);
+  }, [canvasState, layers, updateHistory, currentPath, setActiveTool, calculatePathBounds, strokeWidth, strokeStyle, strokeColor]);
 
   // Helper function to check if a point is inside a layer
   const isPointInLayer = useCallback(
@@ -663,7 +725,7 @@ export function Canvas({ boardId }: CanvasProps) {
         return (normalizedX * normalizedX + normalizedY * normalizedY) <= 1;
       } else if (layer.type === Tool.Pencil && layer.points && layer.points.length > 0) {
         // 对于铅笔路径，检查点是否在路径附近
-        const tolerance = 5; // 点击容差范围
+        const tolerance = (layer.strokeWidth || 2) / 2 + 2; // 点击容差范围
 
         // 简单算法：检查点到任何线段的最短距离
         for (let i = 1; i < layer.points.length; i++) {
@@ -677,6 +739,9 @@ export function Canvas({ boardId }: CanvasProps) {
           }
         }
         return false;
+      } else if (layer.type === Tool.Line && layer.points && layer.points.length === 2) {
+        const tolerance = (layer.strokeWidth || 2) / 2 + 2;
+        return distancePointToSegment(point, layer.points[0], layer.points[1]) <= tolerance;
       }
 
       // 默认矩形检测
@@ -782,7 +847,7 @@ export function Canvas({ boardId }: CanvasProps) {
           y: point.y,
           width: 100,
           height: 100,
-          fill: "black",
+          fill: strokeColor,
         };
 
         const updatedLayers = [...layers, newLayer];
@@ -799,7 +864,7 @@ export function Canvas({ boardId }: CanvasProps) {
           y: point.y,
           width: 100,
           height: 100,
-          fill: "black",
+          fill: strokeColor,
         };
 
         const updatedLayers = [...layers, newLayer];
@@ -817,9 +882,15 @@ export function Canvas({ boardId }: CanvasProps) {
           current: point
         });
         return;
+      } else if (activeTool === Tool.Line) {
+        setCanvasState({
+          mode: CanvasMode.DrawingLine,
+          origin: point,
+          current: point,
+        });
       }
     },
-    [activeTool, layers, camera, selectedLayerIds, getLayerIdAtPoint, updateHistory, screenToWorld]
+    [activeTool, layers, camera, selectedLayerIds, getLayerIdAtPoint, updateHistory, screenToWorld, strokeColor, strokeStyle, strokeWidth]
   );
 
   const deleteSelectedLayers = useCallback(() => {
@@ -953,6 +1024,11 @@ export function Canvas({ boardId }: CanvasProps) {
     } else if (layer.type === Tool.Pencil && layer.points && layer.points.length > 0) {
       // 生成SVG路径字符串
       const pathData = `M ${layer.points[0].x} ${layer.points[0].y} ${layer.points.slice(1).map(point => `L ${point.x} ${point.y}`).join(' ')}`;
+      const getStrokeDashArray = () => {
+        if (layer.strokeStyle === "dashed") return "8, 8";
+        if (layer.strokeStyle === "dotted") return `0, ${layer.strokeWidth ? layer.strokeWidth * 2 : 4}`;
+        return "none";
+      };
 
       return (
         <g>
@@ -965,9 +1041,57 @@ export function Canvas({ boardId }: CanvasProps) {
             d={pathData}
             fill="none"
             stroke={layer.fill}
-            strokeWidth={2}
+            strokeWidth={layer.strokeWidth || 2}
             strokeLinejoin="round"
-            strokeLinecap="round"
+            strokeLinecap={layer.strokeStyle === "dotted" ? "round" : "butt"}
+            strokeDasharray={getStrokeDashArray()}
+            className="pointer-events-auto"
+          />
+          {selected && (
+            <>
+              <rect
+                x={layer.x}
+                y={layer.y}
+                width={layer.width}
+                height={layer.height}
+                fill="transparent"
+                stroke="#007bff"
+                strokeWidth={1}
+                strokeDasharray="3,3"
+                className="pointer-events-none"
+              />
+              <MoveHandle
+                x={layer.x + layer.width / 2}
+                y={layer.y + layer.height / 2}
+                size={MOVE_HANDLE_SIZE}
+                onPointerDown={handleMovePointerDown}
+              />
+            </>
+          )}
+        </g>
+      );
+    } else if (layer.type === Tool.Line && layer.points && layer.points.length === 2) {
+      const getStrokeDashArray = () => {
+        if (layer.strokeStyle === "dashed") return "8, 8";
+        if (layer.strokeStyle === "dotted") return `0, ${layer.strokeWidth ? layer.strokeWidth * 2 : 4}`;
+        return "none";
+      };
+      return (
+        <g>
+          <line
+            onPointerDown={(e) => onLayerPointerDown(e, layer.id)}
+            onContextMenu={(e) => {
+              console.log("Layer context menu triggered", layer.id);
+              onLayerContextMenu(e, layer.id);
+            }}
+            x1={layer.points[0].x}
+            y1={layer.points[0].y}
+            x2={layer.points[1].x}
+            y2={layer.points[1].y}
+            stroke={layer.fill}
+            strokeWidth={layer.strokeWidth || 2}
+            strokeLinecap={layer.strokeStyle === "dotted" ? "round" : "butt"}
+            strokeDasharray={getStrokeDashArray()}
             className="pointer-events-auto"
           />
           {selected && (
@@ -1074,6 +1198,13 @@ export function Canvas({ boardId }: CanvasProps) {
         redo={redo}
         canUndo={canUndo}
         canRedo={canRedo}
+        strokeWidth={strokeWidth}
+        setStrokeWidth={setStrokeWidth}
+        strokeStyle={strokeStyle}
+        setStrokeStyle={setStrokeStyle}
+        updateSelectedLayersProperties={updateSelectedLayersProperties}
+        strokeColor={strokeColor}
+        onColorChange={handleDrawingColorChange}
       />
       <svg
         ref={svgRef}
@@ -1129,6 +1260,16 @@ export function Canvas({ boardId }: CanvasProps) {
             <DragSelectionBox
               startPoint={canvasState.origin}
               endPoint={canvasState.current}
+            />
+          )}
+          {canvasState.mode === CanvasMode.DrawingLine && (
+            <path
+              d={`M ${canvasState.origin.x} ${canvasState.origin.y} L ${canvasState.current.x} ${canvasState.current.y}`}
+              fill="none"
+              stroke="black"
+              strokeWidth={strokeWidth}
+              strokeDasharray={strokeStyle === "dashed" ? "8, 8" : "none"}
+              className="pointer-events-none"
             />
           )}
         </g>
