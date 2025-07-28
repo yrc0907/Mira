@@ -22,7 +22,8 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   sessions      Session[]
-  boards        Board[]   // Relation to boards created by this user
+  boards        Board[]        // Relation to boards created by this user
+  memberships   BoardMember[]
 }
 
 model Session {
@@ -43,6 +44,18 @@ model Board {
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   tasks       Task[]
+  members     BoardMember[]
+  inviteCode  String?  @unique
+}
+
+model BoardMember {
+  id      String @id @default(cuid())
+  boardId String
+  board   Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([boardId, userId])
 }
 
 model Task {
