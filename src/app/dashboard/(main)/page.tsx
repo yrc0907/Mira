@@ -27,7 +27,7 @@ export default function DashboardPage() {
           throw new Error('Failed to fetch boards')
         }
         const data = await response.json()
-        setBoards(data)
+        setBoards(data.boards)
       } catch (error) {
         console.error('Error fetching boards:', error)
         toast({

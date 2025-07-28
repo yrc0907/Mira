@@ -1,34 +1,44 @@
-import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { prisma } from "@/lib/database";
+import { PrismaClient } from "@/generated/prisma";
+import { NextResponse } from "next/server";
 
-// GET /api/boards - Get all boards for the current user
+const prisma = new PrismaClient();
+
 export async function GET() {
   const session = await auth();
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return new NextResponse("Unauthorized", { status: 401 });
   }
+
+  const userId = session.user.id;
 
   try {
     const boards = await prisma.board.findMany({
       where: {
-        userId: session.user.id,
-      },
-      orderBy: {
-        updatedAt: "desc",
+        OR: [
+          {
+            userId,
+          },
+          {
+            members: {
+              some: {
+                userId,
+              },
+            },
+          },
+        ],
       },
     });
 
-    return NextResponse.json(boards);
+    return NextResponse.json({ boards });
   } catch (error) {
-    console.error("Error fetching boards:", error);
-    return NextResponse.json({ error: "Failed to fetch boards" }, { status: 500 });
+    return new NextResponse("Internal Server Error", { status: 500 });
   }
 }
 
 // POST /api/boards - Create a new board
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   const session = await auth();
 
   if (!session?.user?.id) {
