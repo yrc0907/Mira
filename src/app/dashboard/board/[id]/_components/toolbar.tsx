@@ -8,6 +8,9 @@ import {
   StickyNote,
   Type,
   Undo2,
+  Grid,
+  Palette,
+  Trash2,
 } from "lucide-react";
 import React, { useState } from "react";
 import ToolButton from "./tool-button";
@@ -20,6 +23,11 @@ interface ToolbarProps {
   redo: () => void;
   canUndo: boolean;
   canRedo: boolean;
+  snapToGrid: boolean;          // 是否启用网格对齐
+  toggleSnapToGrid: () => void; // 切换网格对齐的函数
+  hasSelectedLayers: boolean;  // 是否有选中图层
+  onDeleteLayers: () => void;  // 删除选中图层的函数
+  onOpenColorPicker: () => void; // 打开颜色选择器的函数
 }
 
 const Toolbar = ({
@@ -29,6 +37,11 @@ const Toolbar = ({
   redo,
   canUndo,
   canRedo,
+  snapToGrid,
+  toggleSnapToGrid,
+  hasSelectedLayers,
+  onDeleteLayers,
+  onOpenColorPicker
 }: ToolbarProps) => {
   return (
     <div className="absolute translate-y-1/2 left-2 flex flex-col gap-y-4">
@@ -122,6 +135,32 @@ const Toolbar = ({
           isDisabled={!canRedo}
         />
       </div>
+      <div className="bg-white rounded-md p-1.5 flex flex-col items-center shadow-md">
+        <ToolButton
+          label={snapToGrid ? "Grid: On" : "Grid: Off"}
+          icon={Grid}
+          onClick={toggleSnapToGrid}
+          isActive={snapToGrid}
+        />
+      </div>
+
+      {/* 添加图层操作按钮（仅当有选中图层时显示） */}
+      {hasSelectedLayers && (
+        <div className="bg-white rounded-md p-1.5 flex flex-col items-center shadow-md">
+          <ToolButton
+            label="修改颜色"
+            icon={Palette}
+            onClick={onOpenColorPicker}
+          />
+          <ToolButton
+            label="删除图层"
+            icon={Trash2}
+            onClick={onDeleteLayers}
+            bgColor="bg-red-50"
+            textColor="text-red-600"
+          />
+        </div>
+      )}
     </div>
   );
 };

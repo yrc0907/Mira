@@ -1,10 +1,9 @@
 "use client";
 
-import Hint from "@/components/hint";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { LucideIcon } from "lucide-react";
-import React from "react";
+
+import { Button } from "@/components/ui/button";
+import Hint from "@/components/hint";
 
 interface ToolButtonProps {
   label: string;
@@ -12,6 +11,8 @@ interface ToolButtonProps {
   onClick: () => void;
   isActive?: boolean;
   isDisabled?: boolean;
+  bgColor?: string;
+  textColor?: string;
 }
 const ToolButton = ({
   label,
@@ -19,6 +20,8 @@ const ToolButton = ({
   onClick,
   isActive,
   isDisabled,
+  bgColor,
+  textColor,
 }: ToolButtonProps) => {
   return (
     <Hint label={label} side="right" sideOffset={14}>
@@ -27,6 +30,7 @@ const ToolButton = ({
         onClick={onClick}
         size="icon"
         variant={isActive ? "boardActive" : "board"}
+        className={`${bgColor || ''} ${textColor || ''}`}
       >
         <Icon />
       </Button>

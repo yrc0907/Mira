@@ -200,3 +200,8 @@
 .dark .dark\:bg-gray-950 {
   background-color: #000000 !important;
 }
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
