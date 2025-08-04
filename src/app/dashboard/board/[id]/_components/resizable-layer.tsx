@@ -1,6 +1,7 @@
 import { useRef, useState, useCallback } from 'react';
 import { useMutation } from '@/liveblocks.config';
-import { Side, Layer } from '@/types/canvas';
+import { Side, Layer, LayerType } from '@/types/canvas';
+import { PencilPoint } from './pencil-tool';
 
 // 定义调整大小起始状态的类型
 interface ResizeStartState {
@@ -54,6 +55,48 @@ export const ResizableLayer = ({
       const layerData = layersMap.get(id);
 
       if (layerData) {
+        // 特别处理Path类型的图层调整大小
+        if (layer.type === LayerType.Path) {
+          const { x: newX, y: newY, width: newWidth, height: newHeight } = newValues;
+          const currentLayer = layerData.toObject();
+
+          // 获取Path类型特有的points属性
+          if (currentLayer.type === LayerType.Path &&
+            typeof newX === 'number' &&
+            typeof newY === 'number' &&
+            typeof newWidth === 'number' &&
+            typeof newHeight === 'number' &&
+            Array.isArray(currentLayer.points) &&
+            currentLayer.points.length > 0) {
+
+            // 计算缩放比例
+            const scaleX = newWidth / layer.width;
+            const scaleY = newHeight / layer.height;
+
+            // 获取当前点的相对坐标
+            const points = currentLayer.points as PencilPoint[];
+
+            // 应用缩放比例到所有点
+            const scaledPoints = points.map(([px, py, pressure]) => [
+              px * scaleX,  // 缩放X坐标
+              py * scaleY,  // 缩放Y坐标
+              pressure
+            ] as PencilPoint);
+
+            // 更新图层数据
+            layerData.update({
+              x: newX,
+              y: newY,
+              width: newWidth,
+              height: newHeight,
+              points: scaledPoints
+            });
+
+            return; // 提前返回，不再执行通用更新
+          }
+        }
+
+        // 对于非Path类型的图层或没有提供完整缩放信息的情况，使用通用更新
         Object.entries(newValues).forEach(([key, value]) => {
           layerData.update({
             [key]: value
@@ -61,7 +104,7 @@ export const ResizableLayer = ({
         });
       }
     },
-    []
+    [layer]
   );
 
   // 处理调整大小开始

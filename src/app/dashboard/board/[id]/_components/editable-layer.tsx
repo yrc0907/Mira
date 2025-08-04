@@ -170,7 +170,13 @@ export const EditableLayer = ({
     return renderLayerContent();
   }
 
-  // 选中时添加平移和调整大小功能
+  // Path类型图层选中时不使用TranslateLayer和ResizableLayer
+  // 因为它有自己的拖动和调整大小实现
+  if (layer.type === LayerType.Path) {
+    return renderLayerContent();
+  }
+
+  // 其他类型图层选中时添加平移和调整大小功能
   return (
     <TranslateLayer
       id={id}
