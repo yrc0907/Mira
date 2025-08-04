@@ -117,7 +117,10 @@ const Toolbar = ({
         <ToolButton
           label="Pencil"
           icon={Pencil}
-          onClick={() => setCanvasState({ mode: CanvasMode.Pencil })}
+          onClick={() => {
+            // Set canvas mode to Pencil and clear any selection
+            setCanvasState({ mode: CanvasMode.Pencil });
+          }}
           isActive={canvasState.mode === CanvasMode.Pencil}
         />
       </div>

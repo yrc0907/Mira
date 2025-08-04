@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { useMutation } from '@/liveblocks.config';
 import { Layer, Point, LayerType } from '@/types/canvas';
+import { PencilPoint } from './pencil-tool';
 
 interface TranslateLayerProps {
   id: string;
@@ -50,35 +51,14 @@ export const TranslateLayer = ({
       const layerData = layersMap.get(id);
 
       if (layerData) {
-        // 对于Path类型，我们需要同时更新所有点的坐标
+        // 对于Path类型，我们只需要更新位置，而不需要更新点坐标
+        // 因为点坐标是相对于图层左上角的，图层移动时，点坐标不变
         if (layer.type === LayerType.Path) {
-          // 使用类型断言确保TypeScript理解这是Path类型
-          const pathLayer = layer as Extract<Layer, { type: LayerType.Path }>;
-
-          // 计算位移差值
-          const dx = position.x - pathLayer.x;
-          const dy = position.y - pathLayer.y;
-
-          // 如果有points属性，移动所有点
-          if (pathLayer.points && pathLayer.points.length > 0) {
-            const newPoints = pathLayer.points.map(point => [
-              point[0] + dx,
-              point[1] + dy,
-              point[2]
-            ]);
-
-            layerData.update({
-              x: position.x,
-              y: position.y,
-              points: newPoints
-            });
-          } else {
-            // 如果没有points，只更新位置
-            layerData.update({
-              x: position.x,
-              y: position.y
-            });
-          }
+          // 无需修改points，直接更新x和y坐标
+          layerData.update({
+            x: position.x,
+            y: position.y
+          });
         } else {
           // 对于其他类型，只更新位置
           layerData.update({

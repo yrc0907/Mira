@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { Layer, LayerType } from '@/types/canvas';
 import { ResizableLayer } from './resizable-layer';
 import { TranslateLayer } from './translate-layer';
+import { PathRenderer } from './path-renderer';
 
 // 创建平滑路径的辅助函数
 function createSmoothPath(points: number[][]): string {
@@ -29,6 +30,34 @@ function createSmoothPath(points: number[][]): string {
   path += ` L ${lastPoint[0]},${lastPoint[1]}`;
 
   return path;
+}
+
+// 创建路径轮廓，用于更容易选择
+function createPathOutline(points: number[][]): string {
+  if (!points || points.length === 0) return "";
+
+  // 计算路径边界
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+
+  points.forEach(point => {
+    minX = Math.min(minX, point[0]);
+    minY = Math.min(minY, point[1]);
+    maxX = Math.max(maxX, point[0]);
+    maxY = Math.max(maxY, point[1]);
+  });
+
+  // 添加一些padding以便更容易选择
+  const padding = 5;
+  minX -= padding;
+  minY -= padding;
+  maxX += padding;
+  maxY += padding;
+
+  // 创建矩形路径
+  return `M ${minX} ${minY} L ${maxX} ${minY} L ${maxX} ${maxY} L ${minX} ${maxY} Z`;
 }
 
 interface EditableLayerProps {
@@ -63,6 +92,17 @@ export const EditableLayer = ({
     setIsEditing(false);
   }, []);
 
+  // 处理选择事件，确保事件冒泡被阻止
+  const handleSelect = useCallback((e: React.PointerEvent) => {
+    e.stopPropagation();
+
+    // 如果已选中，不重复触发选择事件
+    if (isSelected) return;
+
+    // 调用传入的选择回调
+    onSelect(e);
+  }, [onSelect, isSelected]);
+
   // 渲染特定类型的图层内容
   const renderLayerContent = () => {
     switch (layer.type) {
@@ -74,7 +114,7 @@ export const EditableLayer = ({
             width={layer.width}
             height={layer.height}
             fill={`rgb(${layer.fill.r}, ${layer.fill.g}, ${layer.fill.b})`}
-            onClick={(e) => !isSelected && onSelect(e as unknown as React.PointerEvent)}
+            onPointerDown={(e) => !isSelected && handleSelect(e)}
           />
         );
 
@@ -86,41 +126,19 @@ export const EditableLayer = ({
             rx={layer.width / 2}
             ry={layer.height / 2}
             fill={`rgb(${layer.fill.r}, ${layer.fill.g}, ${layer.fill.b})`}
-            onClick={(e) => !isSelected && onSelect(e as unknown as React.PointerEvent)}
+            onPointerDown={(e) => !isSelected && handleSelect(e)}
           />
         );
 
       case LayerType.Path:
-        if (!layer.points || layer.points.length === 0) return null;
-
-        // 创建平滑的SVG路径数据
-        // 对于Path类型，我们直接使用points中的坐标，不再考虑x和y偏移
-        const pathData = createSmoothPath(layer.points);
-
-        // 获取路径的颜色
-        const strokeColor = `rgb(${layer.fill.r}, ${layer.fill.g}, ${layer.fill.b})`;
-
+        // 使用专门的PathRenderer组件处理Path类型图层
         return (
-          <g>
-            {/* 可见的路径 */}
-            <path
-              d={pathData}
-              stroke={strokeColor}
-              strokeWidth={2}
-              fill="none"
-              strokeLinejoin="round"
-              strokeLinecap="round"
-            />
-            {/* 透明的选择区域（更宽以便于选择） */}
-            <path
-              d={pathData}
-              stroke="transparent"
-              strokeWidth={10}
-              fill="none"
-              style={{ cursor: 'pointer' }}
-              onClick={(e) => !isSelected && onSelect(e as unknown as React.PointerEvent)}
-            />
-          </g>
+          <PathRenderer
+            id={id}
+            layer={layer}
+            isSelected={isSelected}
+            onSelect={handleSelect}
+          />
         );
 
       case LayerType.Text:
@@ -131,7 +149,7 @@ export const EditableLayer = ({
             y={layer.y}
             width={layer.width}
             height={layer.height}
-            onClick={(e) => !isSelected && onSelect(e as unknown as React.PointerEvent)}
+            onPointerDown={(e) => !isSelected && handleSelect(e)}
           >
             <div
               className={`h-full w-full flex items-center justify-center text-sm p-2 ${layer.type === LayerType.Note ? "bg-yellow-200" : ""
