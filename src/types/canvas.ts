@@ -112,6 +112,8 @@ export type Layer =
     value?: string;
     penThickness?: number;
     penStyle?: string;
+    fillEnabled?: boolean;  // 是否启用填充
+    fillColor?: Color;      // 填充颜色
   }
   | {
     type: LayerType.Text;

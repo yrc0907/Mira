@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import React, { useState, useRef, useCallback } from "react";
 import ToolButton from "./tool-button";
-import { CanvasMode, CanvasState, LayerType } from "@/types/canvas";
+import { CanvasMode, CanvasState, LayerType, Color } from "@/types/canvas";
 import { PencilStyle } from "./canvas";
 
 interface ToolbarProps {
@@ -36,6 +36,10 @@ interface ToolbarProps {
   setPencilThickness: (thickness: number) => void; // 设置铅笔粗细的函数
   pencilStyle: PencilStyle; // 铅笔样式
   setPencilStyle: (style: PencilStyle) => void; // 设置铅笔样式的函数
+  pathFillEnabled: boolean; // 是否启用路径填充
+  setPathFillEnabled: (enabled: boolean) => void; // 设置是否启用路径填充
+  pathFillColor: Color; // 路径填充颜色
+  setPathFillColor: (color: Color) => void; // 设置路径填充颜色
 }
 
 const Toolbar = ({
@@ -53,7 +57,11 @@ const Toolbar = ({
   pencilThickness,
   setPencilThickness,
   pencilStyle,
-  setPencilStyle
+  setPencilStyle,
+  pathFillEnabled,
+  setPathFillEnabled,
+  pathFillColor,
+  setPathFillColor
 }: ToolbarProps) => {
   // 添加状态来控制铅笔设置面板的显示
   const [showPencilOptions, setShowPencilOptions] = useState(false);
@@ -67,6 +75,11 @@ const Toolbar = ({
   // 处理铅笔样式改变
   const handleStyleChange = (style: PencilStyle) => {
     setPencilStyle(style);
+  };
+
+  // 切换填充功能
+  const toggleFill = () => {
+    setPathFillEnabled(!pathFillEnabled);
   };
 
   // 关闭铅笔选项面板的处理函数
@@ -220,6 +233,49 @@ const Toolbar = ({
                       <span className="text-xs">点线</span>
                     </button>
                   </div>
+                </div>
+
+                {/* 填充选项 */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs text-gray-600">填充闭合路径:</label>
+                    <button
+                      className={`px-2 py-1 text-xs rounded-md ${pathFillEnabled ? 'bg-blue-500 text-white' : 'bg-gray-100'}`}
+                      onClick={toggleFill}
+                    >
+                      {pathFillEnabled ? '开启' : '关闭'}
+                    </button>
+                  </div>
+
+                  {pathFillEnabled && (
+                    <div className="mt-2 space-y-1">
+                      <label className="text-xs text-gray-600">填充颜色:</label>
+                      <div className="flex gap-2 mt-1">
+                        {/* 预设颜色选项 */}
+                        {[
+                          { r: 255, g: 255, b: 0 },   // 黄色
+                          { r: 255, g: 0, b: 0 },     // 红色
+                          { r: 0, g: 255, b: 0 },     // 绿色
+                          { r: 0, g: 0, b: 255 },     // 蓝色
+                          { r: 255, g: 165, b: 0 }    // 橙色
+                        ].map((color, index) => (
+                          <button
+                            key={index}
+                            className={`w-6 h-6 rounded-full border-2 ${pathFillColor.r === color.r &&
+                              pathFillColor.g === color.g &&
+                              pathFillColor.b === color.b ?
+                              'border-black' : 'border-gray-300'
+                              }`}
+                            style={{
+                              backgroundColor: `rgb(${color.r}, ${color.g}, ${color.b})`
+                            }}
+                            onClick={() => setPathFillColor(color)}
+                            aria-label={`设置填充颜色`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

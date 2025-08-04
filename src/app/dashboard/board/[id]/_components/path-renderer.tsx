@@ -181,6 +181,11 @@ export const PathRenderer = ({
   // 获取路径颜色
   const strokeColor = `rgb(${layer.fill.r}, ${layer.fill.g}, ${layer.fill.b})`;
 
+  // 获取填充颜色
+  const fillColor = layer.fillEnabled && layer.fillColor
+    ? `rgb(${layer.fillColor.r}, ${layer.fillColor.g}, ${layer.fillColor.b})`
+    : "none";
+
   // 处理选择事件
   const handleSelect = (e: React.PointerEvent) => {
     e.stopPropagation();
@@ -437,7 +442,8 @@ export const PathRenderer = ({
         stroke={strokeColor}
         strokeWidth={layer.penThickness || 2}
         strokeDasharray={getDashArray(layer.penStyle || 'solid', layer.penThickness || 2)}
-        fill="none"
+        fill={fillColor}
+        fillOpacity={0.7}
         strokeLinejoin="round"
         strokeLinecap="round"
         style={{ pointerEvents: 'none' }}

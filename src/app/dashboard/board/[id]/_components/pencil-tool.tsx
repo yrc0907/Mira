@@ -10,6 +10,8 @@ interface PencilToolProps {
   penColor: string | null;
   penThickness?: number;
   penStyle?: string;
+  fillEnabled?: boolean; // 是否启用填充
+  fillColor?: string;    // 填充颜色
 }
 
 /**
@@ -19,7 +21,9 @@ export const PencilTool = ({
   points,
   penColor,
   penThickness = 3, // 默认粗细为3
-  penStyle = 'solid' // 默认为实线
+  penStyle = 'solid', // 默认为实线
+  fillEnabled = false, // 默认不填充
+  fillColor = "rgba(255, 255, 0, 0.5)" // 默认半透明黄色填充
 }: PencilToolProps) => {
   // 如果没有点或者没有颜色，不渲染任何内容
   if (!points || points.length === 0 || !penColor) {
@@ -28,8 +32,10 @@ export const PencilTool = ({
 
   // 创建路径数据
   const pathData = useMemo(() => {
-    return createSmoothPath(points);
-  }, [points]);
+    // 如果要填充颜色，需要闭合路径
+    const path = createSmoothPath(points);
+    return fillEnabled && points.length > 2 ? path + " Z" : path; // Z命令闭合路径
+  }, [points, fillEnabled]);
 
   // 根据笔画样式设置dash属性
   const getDashArray = (): string | undefined => {
@@ -49,7 +55,7 @@ export const PencilTool = ({
       stroke={penColor}
       strokeWidth={penThickness}
       strokeDasharray={getDashArray()}
-      fill="none"
+      fill={fillEnabled ? fillColor : "none"}
       strokeLinejoin="round"
       strokeLinecap="round"
       className="pencil-draft"
