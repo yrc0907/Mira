@@ -2,6 +2,19 @@ import React, { useState, useRef, useCallback } from 'react';
 import { Layer, LayerType, Point, Side } from '@/types/canvas';
 import { PencilHelpers, PencilPoint } from './pencil-tool';
 import { useMutation } from '@/liveblocks.config';
+import { PencilStyle } from './canvas'; // Import the PencilStyle enum
+
+// Helper function to get dash array based on style
+const getDashArray = (style: string, thickness: number): string | undefined => {
+  switch (style) {
+    case PencilStyle.Dashed:
+      return `${thickness * 3} ${thickness * 2}`;
+    case PencilStyle.Dotted:
+      return `${thickness} ${thickness * 2}`;
+    default: // Solid line
+      return undefined;
+  }
+};
 
 interface PathRendererProps {
   id: string;
@@ -422,7 +435,8 @@ export const PathRenderer = ({
       <path
         d={visiblePath}
         stroke={strokeColor}
-        strokeWidth="2"
+        strokeWidth={layer.penThickness || 2}
+        strokeDasharray={getDashArray(layer.penStyle || 'solid', layer.penThickness || 2)}
         fill="none"
         strokeLinejoin="round"
         strokeLinecap="round"

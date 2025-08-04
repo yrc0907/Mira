@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { Color, Point } from '@/types/canvas';
+import { PencilStyle } from './canvas'; // Import the PencilStyle enum
 
 // 声明类型以匹配Presence中的pencilDraft类型
 export type PencilPoint = [x: number, y: number, pressure: number];
@@ -7,6 +8,8 @@ export type PencilPoint = [x: number, y: number, pressure: number];
 interface PencilToolProps {
   points: PencilPoint[] | null;
   penColor: string | null;
+  penThickness?: number;
+  penStyle?: string;
 }
 
 /**
@@ -14,7 +17,9 @@ interface PencilToolProps {
  */
 export const PencilTool = ({
   points,
-  penColor
+  penColor,
+  penThickness = 3, // 默认粗细为3
+  penStyle = 'solid' // 默认为实线
 }: PencilToolProps) => {
   // 如果没有点或者没有颜色，不渲染任何内容
   if (!points || points.length === 0 || !penColor) {
@@ -26,11 +31,24 @@ export const PencilTool = ({
     return createSmoothPath(points);
   }, [points]);
 
+  // 根据笔画样式设置dash属性
+  const getDashArray = (): string | undefined => {
+    switch (penStyle) {
+      case PencilStyle.Dashed:
+        return `${penThickness * 3} ${penThickness * 2}`;
+      case PencilStyle.Dotted:
+        return `${penThickness} ${penThickness * 2}`;
+      default:
+        return undefined;
+    }
+  };
+
   return (
     <path
       d={pathData}
       stroke={penColor}
-      strokeWidth="2"
+      strokeWidth={penThickness}
+      strokeDasharray={getDashArray()}
       fill="none"
       strokeLinejoin="round"
       strokeLinecap="round"
