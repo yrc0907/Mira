@@ -56,6 +56,14 @@ export function Canvas({ boardId }: { boardId: string }) {
   const [pencilThickness, setPencilThickness] = useState<number>(3); // 默认粗细为3
   const [pencilStyle, setPencilStyle] = useState<PencilStyle>(PencilStyle.Solid); // 默认实线
 
+  // 添加路径填充相关状态
+  const [pathFillEnabled, setPathFillEnabled] = useState<boolean>(false); // 默认不填充
+  const [pathFillColor, setPathFillColor] = useState<Color>({
+    r: 255,
+    g: 255,
+    b: 0
+  }); // 默认黄色填充
+
   // 添加图层操作菜单状态
   const [showLayerActions, setShowLayerActions] = useState(false);
 
@@ -325,8 +333,10 @@ export function Canvas({ boardId }: { boardId: string }) {
         fill: lastUsedColor,
         points: pointsRelative, // 存储相对坐标
         value: "",
-        penThickness, // 添加笔画粗细属性
-        penStyle,     // 添加笔画样式属性
+        penThickness, // 笔画粗细属性
+        penStyle,     // 笔画样式属性
+        fillEnabled: pathFillEnabled, // 是否启用填充
+        fillColor: pathFillColor,     // 填充颜色
       };
 
       // 将路径添加到存储中
@@ -346,7 +356,7 @@ export function Canvas({ boardId }: { boardId: string }) {
       // 显示图层选项菜单
       setShowLayerActions(true);
     },
-    [lastUsedColor, updateMyPresence, setCanvasState, setShowLayerActions]
+    [lastUsedColor, updateMyPresence, setCanvasState, setShowLayerActions, pathFillEnabled, pathFillColor]
   );
 
   const startDrawing = useCallback(
@@ -586,6 +596,10 @@ export function Canvas({ boardId }: { boardId: string }) {
         setPencilThickness={setPencilThickness}
         pencilStyle={pencilStyle}
         setPencilStyle={setPencilStyle}
+        pathFillEnabled={pathFillEnabled}
+        setPathFillEnabled={setPathFillEnabled}
+        pathFillColor={pathFillColor}
+        setPathFillColor={setPathFillColor}
       />
 
       {/* 图层操作菜单 */}
@@ -681,6 +695,8 @@ export function Canvas({ boardId }: { boardId: string }) {
             penColor={pencilColor}
             penThickness={penThickness}
             penStyle={penStyle}
+            fillEnabled={pathFillEnabled}
+            fillColor={pathFillEnabled ? `rgba(${pathFillColor.r}, ${pathFillColor.g}, ${pathFillColor.b}, 0.5)` : undefined}
           />
 
           <Cursors />
