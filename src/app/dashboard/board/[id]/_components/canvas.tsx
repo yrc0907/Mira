@@ -14,6 +14,7 @@ import { SelectionNet } from './selection-net';
 import { SelectionBox } from './selection-box';
 import { LayerActions } from './layer-actions';
 import { Settings, Layers } from 'lucide-react';
+import { PencilTool, PencilHelpers, PencilPoint } from './pencil-tool';
 
 const Cursors = () => {
   const others = useOthers();
@@ -96,42 +97,68 @@ export function Canvas({ boardId }: { boardId: string }) {
   // 处理图层选择
   const handleLayerSelect = useCallback((layerId: string, e: React.PointerEvent) => {
     e.stopPropagation();
+    e.preventDefault(); // 防止事件冒泡
 
-    // 如果按住Shift键，则将图层添加到已选择的图层列表中
+    // 确保选中的是当前图层
+    const targetLayerId = (e.target as HTMLElement).dataset.layerId || layerId;
+    const { selection } = myPresence;
+
+    // 打印调试信息
+    console.log("选中图层:", targetLayerId, "当前点击元素:", e.target);
+
+    // Shift-click: add or remove from selection
     if (e.shiftKey) {
-      // 如果已选择，则取消选择
-      if (selectedLayerIds.includes(layerId)) {
-        updateMyPresence({
-          selection: selectedLayerIds.filter(id => id !== layerId)
-        });
-      } else {
-        // 否则添加到选择列表
-        updateMyPresence({
-          selection: [...selectedLayerIds, layerId]
-        });
+      const newSelection = selection.includes(targetLayerId)
+        ? selection.filter(id => id !== targetLayerId)
+        : [...selection, targetLayerId];
+
+      updateMyPresence({ selection: newSelection });
+    }
+    // Regular click - 只选择点击的那一个图层
+    else {
+      // If the layer is already selected, do nothing
+      if (selection.length === 1 && selection[0] === targetLayerId) {
+        return;
       }
-    } else {
-      // 如果没有按Shift，则仅选择当前图层
-      updateMyPresence({ selection: [layerId] });
+      // Otherwise, select only the clicked layer
+      updateMyPresence({ selection: [targetLayerId] });
     }
 
-    // 当选择图层时自动显示图层选项菜单
-    setShowLayerActions(true);
+    // 切换到None模式以便能拖动和调整图层大小
+    setCanvasState({ mode: CanvasMode.None });
 
-    setCanvasState({ mode: CanvasMode.None }); // 退出任何活动模式
-  }, [updateMyPresence, selectedLayerIds]);
+    // 显示图层选项菜单
+    setShowLayerActions(true);
+  }, [myPresence, updateMyPresence, setCanvasState, setShowLayerActions]);
 
   // 判断图层是否在选择区域内
   const isLayerInSelectionArea = useCallback((layer: Layer, selectionArea: XYWH) => {
-    // 对于Path类型，我们需要检查路径中的点是否有任何一个在选择区域内
+    // 对于Path类型，需要考虑路径的相对坐标
     if (layer.type === LayerType.Path && layer.points && layer.points.length > 0) {
-      // 检查是否至少有一个点在选择区域内
-      return layer.points.some(([x, y]) =>
-        x >= selectionArea.x &&
-        x <= selectionArea.x + selectionArea.width &&
-        y >= selectionArea.y &&
-        y <= selectionArea.y + selectionArea.height
+      // 图层的基本位置和大小
+      const { x: layerX, y: layerY } = layer;
+
+      // 获取相对坐标的点
+      const relativePoints = layer.points as PencilPoint[];
+
+      // 将点转换为绝对坐标
+      const absolutePoints = PencilHelpers.toAbsolutePoints(
+        relativePoints,
+        layerX,
+        layerY
       );
+
+      // 计算绝对坐标的边界
+      const bounds = PencilHelpers.getPathBounds(absolutePoints);
+
+      // 检查路径边界是否与选择区域相交
+      const isOverlapping =
+        bounds.minX <= selectionArea.x + selectionArea.width &&
+        bounds.maxX >= selectionArea.x &&
+        bounds.minY <= selectionArea.y + selectionArea.height &&
+        bounds.maxY >= selectionArea.y;
+
+      return isOverlapping;
     }
 
     // 对于其他类型的图层，检查是否与选择区域相交
@@ -249,38 +276,41 @@ export function Canvas({ boardId }: { boardId: string }) {
 
   const insertPath = useMutation(
     ({ storage, self }) => {
-      const pencilDraft = self.presence.pencilDraft;
+      const pencilDraft = self.presence.pencilDraft as PencilPoint[] | null;
 
       if (!pencilDraft || pencilDraft.length === 0) {
         return;
       }
 
-      // 找到绘制区域的边界
+      // 精确计算路径边界
       const minX = Math.min(...pencilDraft.map(([x]) => x));
       const minY = Math.min(...pencilDraft.map(([_, y]) => y));
       const maxX = Math.max(...pencilDraft.map(([x]) => x));
       const maxY = Math.max(...pencilDraft.map(([_, y]) => y));
 
-      // 确保绘制区域有最小尺寸
-      const width = Math.max(maxX - minX, 5);
-      const height = Math.max(maxY - minY, 5);
+      // 确保宽高有合理的最小值
+      const width = Math.max(maxX - minX, 1);
+      const height = Math.max(maxY - minY, 1);
 
       // 生成图层ID
       const layerId = Date.now().toString();
 
-      // 创建路径图层 - 直接使用原始坐标，不进行偏移
+      // 记录原始点坐标（相对于图层原点的偏移）
+      const pointsRelative = pencilDraft.map(([x, y, pressure]) => [
+        x - minX, // 将x坐标转换为相对于图层左上角的偏移
+        y - minY, // 将y坐标转换为相对于图层左上角的偏移
+        pressure || 1
+      ] as PencilPoint);
+
+      // 创建路径图层 - 使用精确的边界
       const layer: Layer = {
         type: LayerType.Path,
-        x: 0,  // 不再使用minX作为偏移
-        y: 0,  // 不再使用minY作为偏移
-        width: Math.max(maxX, 5),  // 使用绝对坐标的最大值
-        height: Math.max(maxY, 5), // 使用绝对坐标的最大值
+        x: minX, // 使用最小x作为图层左上角
+        y: minY, // 使用最小y作为图层左上角
+        width: width, // 精确宽度
+        height: height, // 精确高度
         fill: lastUsedColor,
-        points: pencilDraft.map(([x, y, pressure]) => [
-          x,  // 保留原始x坐标
-          y,  // 保留原始y坐标
-          pressure
-        ]),
+        points: pointsRelative, // 存储相对坐标
         value: "",
       };
 
@@ -288,31 +318,35 @@ export function Canvas({ boardId }: { boardId: string }) {
       storage.get("layers").set(layerId, new LiveObject(layer));
       storage.get("layerIds").push(layerId);
 
-      // 清除铅笔草稿
+      // 清除铅笔草稿并选中新创建的图层
       updateMyPresence({
         pencilDraft: null,
-        // 选择新创建的图层
-        selection: [layerId]
+        selection: [layerId],
+        penColor: null
       });
 
-      // 自动显示图层选项菜单
+      // 设置回None模式，允许选择
+      setCanvasState({ mode: CanvasMode.None });
+
+      // 显示图层选项菜单
       setShowLayerActions(true);
     },
-    [lastUsedColor, updateMyPresence]
+    [lastUsedColor, updateMyPresence, setCanvasState, setShowLayerActions]
   );
 
   const startDrawing = useCallback(
     (point: Point) => {
+      // Make sure the canvas state is set to Pencil mode
       setCanvasState({ mode: CanvasMode.Pencil });
 
-      // 开始绘制，记录初始点和笔触压力
-      // 确保使用绝对坐标，不进行任何偏移
+      // 开始绘制，设置初始点
       updateMyPresence({
-        pencilDraft: [[point.x, point.y, 1]],
-        penColor: `rgb(${lastUsedColor.r}, ${lastUsedColor.g}, ${lastUsedColor.b})`
+        pencilDraft: [[point.x, point.y, 1]] as PencilPoint[],
+        penColor: `rgb(${lastUsedColor.r}, ${lastUsedColor.g}, ${lastUsedColor.b})`,
+        selection: [] // Clear selection when starting to draw
       });
     },
-    [updateMyPresence, lastUsedColor]
+    [updateMyPresence, lastUsedColor, setCanvasState]
   );
 
   const continueDrawing = useCallback(
@@ -327,10 +361,10 @@ export function Canvas({ boardId }: { boardId: string }) {
         return;
       }
 
-      // 添加新的点到铅笔草稿中，包括笔触压力
-      // 如果设备支持笔压，使用传入的pressure值
+      // 添加新的点到铅笔草稿中
+      const newPoint: PencilPoint = [point.x, point.y, pressure];
       updateMyPresence({
-        pencilDraft: [...pencilDraft, [point.x, point.y, pressure]]
+        pencilDraft: [...pencilDraft, newPoint]
       });
     },
     [canvasState.mode, myPresence, updateMyPresence]
@@ -376,16 +410,18 @@ export function Canvas({ boardId }: { boardId: string }) {
     (e: React.PointerEvent) => {
       const point = pointerEventToCanvasPoint(e);
 
+      // 如果当前模式是铅笔，开始绘制
+      if (canvasState.mode === CanvasMode.Pencil) {
+        startDrawing(point);
+        return;
+      }
+
       // Handle different canvas modes
       switch (canvasState.mode) {
         case CanvasMode.Inserting:
           if ('layerType' in canvasState) {
             insertLayer(canvasState.layerType, point);
           }
-          break;
-        case CanvasMode.Pencil:
-          // 确保使用绝对坐标开始绘制
-          startDrawing(point);
           break;
         default:
           // 如果点击的是空白区域，开始选择框
@@ -411,7 +447,7 @@ export function Canvas({ boardId }: { boardId: string }) {
     // 如果我们正在绘制，插入路径
     if (canvasState.mode === CanvasMode.Pencil) {
       insertPath();
-      setCanvasState({ mode: CanvasMode.None });
+      // 不需要在这里设置为None模式，因为insertPath已经设置了
     }
     // 如果我们正在创建选择框
     else if (canvasState.mode === CanvasMode.SelectionNet) {
@@ -433,7 +469,7 @@ export function Canvas({ boardId }: { boardId: string }) {
       // 结束选择模式
       setCanvasState({ mode: CanvasMode.None });
     }
-  }, [canvasState, insertPath, handleSelectionComplete]);
+  }, [canvasState, insertPath, handleSelectionComplete, setCanvasState]);
 
   // 切换网格对齐功能
   const toggleSnapToGrid = useCallback(() => {
@@ -497,39 +533,9 @@ export function Canvas({ boardId }: { boardId: string }) {
   // 检查是否应该显示图层操作菜单（当有选中的图层时）
   const shouldShowLayerActions = selectedLayerIds.length > 0;
 
-  // 创建平滑路径的辅助函数
-  const createSmoothPath = (points: number[][]): string => {
-    if (points.length < 2) {
-      return points.length === 1
-        ? `M ${points[0][0]},${points[0][1]}`
-        : "";
-    }
-
-    let path = `M ${points[0][0]},${points[0][1]}`;
-
-    // 使用贝塞尔曲线创建平滑路径
-    for (let i = 1; i < points.length - 1; i++) {
-      const xc = (points[i][0] + points[i + 1][0]) / 2;
-      const yc = (points[i][1] + points[i + 1][1]) / 2;
-      path += ` Q ${points[i][0]},${points[i][1]} ${xc},${yc}`;
-    }
-
-    // 添加最后一个点
-    const lastPoint = points[points.length - 1];
-    path += ` L ${lastPoint[0]},${lastPoint[1]}`;
-
-    return path;
-  };
-
-  // Render the current user's pencil draft
+  // 使用PencilTool组件渲染铅笔草稿
   const pencilDraft = myPresence.pencilDraft;
-  const pencilPathData = useMemo(() => {
-    if (!pencilDraft || pencilDraft.length === 0) {
-      return "";
-    }
-
-    return createSmoothPath(pencilDraft);
-  }, [pencilDraft]);
+  const pencilColor = myPresence.penColor;
 
   return (
     <main
@@ -609,7 +615,7 @@ export function Canvas({ boardId }: { boardId: string }) {
         onPointerUp={onPointerUp}
       >
         <g>
-          {/* Render all saved layers */}
+          {/* 渲染所有图层 */}
           {layerIds?.map((layerId: string) => {
             const layer = layers?.get(layerId);
             if (!layer) return null;
@@ -617,7 +623,6 @@ export function Canvas({ boardId }: { boardId: string }) {
             // 检查当前图层是否被选中
             const isSelected = selectedLayerIds.includes(layerId);
 
-            // 直接使用layer对象，不再尝试调用toObject方法
             return (
               <LayerPreview
                 key={layerId}
@@ -647,17 +652,11 @@ export function Canvas({ boardId }: { boardId: string }) {
             />
           )}
 
-          {/* Render current pencil draft */}
-          {pencilDraft && pencilDraft.length > 0 && (
-            <path
-              d={pencilPathData}
-              stroke={myPresence.penColor || "black"}
-              strokeWidth="2"
-              fill="none"
-              strokeLinejoin="round"
-              strokeLinecap="round"
-            />
-          )}
+          {/* 使用新的PencilTool组件渲染铅笔草稿 */}
+          <PencilTool
+            points={pencilDraft}
+            penColor={pencilColor}
+          />
 
           <Cursors />
         </g>
