@@ -110,6 +110,8 @@ export type Layer =
     fill: Color;
     points: number[][];
     value?: string;
+    penThickness?: number;
+    penStyle?: string;
   }
   | {
     type: LayerType.Text;

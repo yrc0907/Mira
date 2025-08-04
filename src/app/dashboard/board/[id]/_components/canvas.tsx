@@ -16,6 +16,13 @@ import { LayerActions } from './layer-actions';
 import { Settings, Layers } from 'lucide-react';
 import { PencilTool, PencilHelpers, PencilPoint } from './pencil-tool';
 
+// 添加笔画类型和粗细枚举
+export enum PencilStyle {
+  Solid = "solid",
+  Dashed = "dashed",
+  Dotted = "dotted"
+}
+
 const Cursors = () => {
   const others = useOthers();
 
@@ -44,6 +51,10 @@ export function Canvas({ boardId }: { boardId: string }) {
   // 添加网格对齐状态
   const [snapToGrid, setSnapToGrid] = useState(false);
   const [gridSize, setGridSize] = useState(20); // 默认网格大小为20px
+
+  // 添加笔画粗细和类型状态
+  const [pencilThickness, setPencilThickness] = useState<number>(3); // 默认粗细为3
+  const [pencilStyle, setPencilStyle] = useState<PencilStyle>(PencilStyle.Solid); // 默认实线
 
   // 添加图层操作菜单状态
   const [showLayerActions, setShowLayerActions] = useState(false);
@@ -277,6 +288,8 @@ export function Canvas({ boardId }: { boardId: string }) {
   const insertPath = useMutation(
     ({ storage, self }) => {
       const pencilDraft = self.presence.pencilDraft as PencilPoint[] | null;
+      const penThickness = self.presence.penThickness || 3; // Default to 3 if not set
+      const penStyle = self.presence.penStyle || PencilStyle.Solid; // Default to solid
 
       if (!pencilDraft || pencilDraft.length === 0) {
         return;
@@ -312,6 +325,8 @@ export function Canvas({ boardId }: { boardId: string }) {
         fill: lastUsedColor,
         points: pointsRelative, // 存储相对坐标
         value: "",
+        penThickness, // 添加笔画粗细属性
+        penStyle,     // 添加笔画样式属性
       };
 
       // 将路径添加到存储中
@@ -343,10 +358,12 @@ export function Canvas({ boardId }: { boardId: string }) {
       updateMyPresence({
         pencilDraft: [[point.x, point.y, 1]] as PencilPoint[],
         penColor: `rgb(${lastUsedColor.r}, ${lastUsedColor.g}, ${lastUsedColor.b})`,
+        penThickness: pencilThickness,
+        penStyle: pencilStyle,
         selection: [] // Clear selection when starting to draw
       });
     },
-    [updateMyPresence, lastUsedColor, setCanvasState]
+    [updateMyPresence, lastUsedColor, pencilThickness, pencilStyle, setCanvasState]
   );
 
   const continueDrawing = useCallback(
@@ -536,6 +553,8 @@ export function Canvas({ boardId }: { boardId: string }) {
   // 使用PencilTool组件渲染铅笔草稿
   const pencilDraft = myPresence.pencilDraft;
   const pencilColor = myPresence.penColor;
+  const penThickness = myPresence.penThickness || pencilThickness;
+  const penStyle = myPresence.penStyle || pencilStyle;
 
   return (
     <main
@@ -563,6 +582,10 @@ export function Canvas({ boardId }: { boardId: string }) {
         hasSelectedLayers={selectedLayerIds.length > 0}
         onDeleteLayers={handleDeleteLayers}
         onOpenColorPicker={handleOpenColorPicker}
+        pencilThickness={pencilThickness}
+        setPencilThickness={setPencilThickness}
+        pencilStyle={pencilStyle}
+        setPencilStyle={setPencilStyle}
       />
 
       {/* 图层操作菜单 */}
@@ -656,6 +679,8 @@ export function Canvas({ boardId }: { boardId: string }) {
           <PencilTool
             points={pencilDraft}
             penColor={pencilColor}
+            penThickness={penThickness}
+            penStyle={penStyle}
           />
 
           <Cursors />
