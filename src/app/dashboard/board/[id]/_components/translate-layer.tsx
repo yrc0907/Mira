@@ -1,7 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { useMutation } from '@/liveblocks.config';
 import { Layer, Point, LayerType } from '@/types/canvas';
-import { PencilPoint } from './pencil-tool';
 
 interface TranslateLayerProps {
   id: string;
@@ -51,24 +50,14 @@ export const TranslateLayer = ({
       const layerData = layersMap.get(id);
 
       if (layerData) {
-        // 对于Path类型，我们只需要更新位置，而不需要更新点坐标
-        // 因为点坐标是相对于图层左上角的，图层移动时，点坐标不变
-        if (layer.type === LayerType.Path) {
-          // 无需修改points，直接更新x和y坐标
-          layerData.update({
-            x: position.x,
-            y: position.y
-          });
-        } else {
-          // 对于其他类型，只更新位置
-          layerData.update({
-            x: position.x,
-            y: position.y
-          });
-        }
+        // 无论图层类型，只更新位置坐标，不再修改points坐标
+        layerData.update({
+          x: position.x,
+          y: position.y
+        });
       }
     },
-    [layer]
+    [id]
   );
 
   // 将坐标对齐到网格

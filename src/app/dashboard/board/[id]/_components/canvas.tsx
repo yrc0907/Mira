@@ -101,7 +101,7 @@ export function Canvas({ boardId }: { boardId: string }) {
 
     // 确保选中的是当前图层
     const targetLayerId = (e.target as HTMLElement).dataset.layerId || layerId;
-    const { selection } = myPresence;
+    const selection = myPresence.selection || []; // 添加空值检查，如果selection为undefined则使用空数组
 
     // 打印调试信息
     console.log("选中图层:", targetLayerId, "当前点击元素:", e.target);
